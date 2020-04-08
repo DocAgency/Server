@@ -64,24 +64,6 @@ class Locality(BaseEntity):
         BaseEntity.__init__(self)
 
 
-class Agency(BaseEntity):
-    name = models.CharField(max_length=50)
-    code = models.CharField(max_length=50)
-
-    bankId = models.ForeignKey(Bank, on_delete=models.DO_NOTHING)
-    localityId = models.ForeignKey(Locality, on_delete=models.DO_NOTHING)
-
-    class Meta:
-        verbose_name = "api_agency"
-        ordering = ['code']
-
-    def __str__(self):
-        return {self.name, self.code, self.bank, self.locality}
-
-    def __init__(self):
-        BaseEntity.__init__(self)
-
-
 class Category(BaseEntity):
     name = models.CharField(max_length=100)
     code = models.CharField(max_length=50)
@@ -133,13 +115,32 @@ class Indicator(BaseEntity):
         return {self.name, self.code, self.description, self.role, self.category}
 
 
+class Agency(BaseEntity):
+    name = models.CharField(max_length=50)
+    code = models.CharField(max_length=50)
+
+    indicators = models.ManyToManyField(Indicator, through='IndAgency')
+    bankId = models.ForeignKey(Bank, on_delete=models.DO_NOTHING)
+    localityId = models.ForeignKey(Locality, on_delete=models.DO_NOTHING)
+
+    class Meta:
+        verbose_name = "api_agency"
+        ordering = ['code']
+
+    def __str__(self):
+        return {self.name, self.code, self.bank, self.locality}
+
+    def __init__(self):
+        BaseEntity.__init__(self)
+
+
 class IndAgency(BaseEntity):
     data = models.IntegerField()
     type_value = models.CharField(max_length=50)
     date = models.DateTimeField(default=datetime.now)
 
-    agencyId = models.ForeignKey(Agency, on_delete=models.DO_NOTHING, )
-    indicatorId = models.ForeignKey(Indicator, on_delete=models.DO_NOTHING, )
+    agencyId = models.ForeignKey(Agency, on_delete=models.CASCADE, )
+    indicatorId = models.ForeignKey(Indicator, on_delete=models.CASCADE, )
 
     REQUIRED_FIELDS = ['data', 'date', 'agencyId', 'indicatorId']
 
