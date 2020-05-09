@@ -2,6 +2,7 @@ from datetime import datetime
 from django.contrib.auth.models import AbstractUser
 from django.utils.translation import ugettext_lazy as _
 from django.db import models
+from datetime import date
 
 
 # Create your models here.
@@ -38,7 +39,7 @@ class Bank(BaseEntity):
         ordering = ['name']
 
     def __str__(self):
-        return "{}".format(self.siglep)
+        return "{}".format(self.sigle)
 
     # def __str__(self):
     #     return {self.sigle, self.name, self.code}
@@ -58,10 +59,10 @@ class Locality(BaseEntity):
         ordering = ['code']
 
     def __str__(self):
-        return {self.name, self.code, self.region}
+        return self.name
 
-    def __init__(self):
-        BaseEntity.__init__(self)
+    # def __init__(self):
+    #     BaseEntity.__init__(self)
 
 
 class Category(BaseEntity):
@@ -69,90 +70,92 @@ class Category(BaseEntity):
     code = models.CharField(max_length=50)
     description = models.TextField(max_length=1000)
 
-    tutel = models.ForeignKey('Category', on_delete=models.DO_NOTHING, related_name='tutelId')
+    parent = models.ForeignKey('Category', on_delete=models.CASCADE, related_name='children', null=True)
 
     class Meta:
         verbose_name = "api_category"
         ordering = ['code']
 
     def __str__(self):
-        return [self.name, self.code, self.description, self.tutel]
+        return self.name
 
-    def __init__(self):
-        BaseEntity.__init__(self)
+    # def __init__(self):
+    #     BaseEntity.__init__(self)
 
 
 class CategoryValue(BaseEntity):
     name = models.CharField(max_length=100)
     code = models.CharField(max_length=50)
 
-    categoryId = models.ForeignKey(Category, on_delete=models.DO_NOTHING)
+    category = models.ForeignKey('Category', on_delete=models.CASCADE, related_name='categoriesvalue', default=None, null=True)
 
     class Meta:
         verbose_name = "api_category_value"
         ordering = ['code']
 
     def __str__(self):
-        return {self.name, self.code, self.category}
+        return self.name
 
-    def __init__(self):
-        BaseEntity.__init__(self)
+    # def __init__(self):
+    #     BaseEntity.__init__(self)
 
 
 class Indicator(BaseEntity):
     name = models.CharField(max_length=100)
     code = models.CharField(max_length=50)
-    description = models.TextField(max_length=1000)
-    role = models.TextField(max_length=1000)
-
-    categoryId = models.ForeignKey(Category, on_delete=models.DO_NOTHING, )
+    description = models.TextField(max_length=1000, default='-')
+    role = models.TextField(max_length=1000, default='-')
+    type_value = models.CharField(max_length=50, default='int')
+    date = models.DateField(default=date.today)
+    value = models.IntegerField(default=0)
+    category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='indicators', null=True)
 
     class Meta:
         verbose_name = "api_indicator"
         ordering = ['code']
 
     def __str__(self):
-        return {self.name, self.code, self.description, self.role, self.category}
+        return self.name
 
 
 class Agency(BaseEntity):
     name = models.CharField(max_length=50)
     code = models.CharField(max_length=50)
 
-    indicators = models.ManyToManyField(Indicator, through='IndAgency')
-    bankId = models.ForeignKey(Bank, on_delete=models.DO_NOTHING)
-    localityId = models.ForeignKey(Locality, on_delete=models.DO_NOTHING)
+    indicators = models.ManyToManyField(Indicator, through='IndAgency', related_name='agency')
+    bank = models.ForeignKey(Bank, on_delete=models.CASCADE, related_name='agency', null=True)
+    locality = models.ForeignKey(Locality, on_delete=models.CASCADE, related_name='agency', null=True)
 
     class Meta:
         verbose_name = "api_agency"
-        ordering = ['code']
+        ordering = ['id']
 
     def __str__(self):
-        return {self.name, self.code, self.bank, self.locality}
+        return self.name
 
-    def __init__(self):
-        BaseEntity.__init__(self)
+    # def __init__(self):
+    #     BaseEntity.__init__(self)
 
 
 class IndAgency(BaseEntity):
     data = models.IntegerField()
     type_value = models.CharField(max_length=50)
-    date = models.DateTimeField(default=datetime.now)
+    date_operation = models.DateField(default=date.today)
 
-    agencyId = models.ForeignKey(Agency, on_delete=models.CASCADE, )
-    indicatorId = models.ForeignKey(Indicator, on_delete=models.CASCADE, )
+    agency = models.ForeignKey(Agency, on_delete=models.CASCADE, related_name='indicagency', null=True)
+    indicator = models.ForeignKey(Indicator, on_delete=models.CASCADE, related_name='indicagency', null=True)
 
-    REQUIRED_FIELDS = ['data', 'date', 'agencyId', 'indicatorId']
+    REQUIRED_FIELDS = ['data', 'date', 'agency_id', 'indicator_id']
 
     class Meta:
         verbose_name = "api_ind_agency"
-        ordering = ['date']
+        ordering = ['date_operation']
 
     def __str__(self):
-        return {self.date, self.data, self.type_value, self.agencyId, self.indicatorId}
+        return self.type_value
 
-    def __init__(self):
-        BaseEntity.__init__(self)
+    # def __init__(self):
+    #     BaseEntity.__init__(self)
 
 
 class User(AbstractUser):
@@ -163,6 +166,8 @@ class User(AbstractUser):
     phone = models.CharField(max_length=50, null=True)
     code = models.CharField(max_length=5, null=True)
     post = models.CharField(max_length=100, null=True)
+
+    agency = models.ManyToManyField(Agency, through='UserAgency', related_name='user')
 
     USERNAME_FIELD = 'email' or 'username'
     REQUIRED_FIELDS = ['username', 'first_name', 'last_name']
@@ -176,15 +181,16 @@ class User(AbstractUser):
 
 
 class UserAgency(BaseEntity):
-    agencyId = models.ForeignKey(Agency, on_delete=models.DO_NOTHING, )
-    userId = models.ForeignKey(User, on_delete=models.DO_NOTHING, )
+
+    agency = models.ForeignKey(Agency, on_delete=models.CASCADE, related_name='useragency')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='useragency')
 
     class Meta:
         verbose_name = "api_user_agency"
-        ordering = ['agencyId']
+        ordering = ['agency']
 
     def __str__(self):
-        return self.agency
+        return self.agency.name
 
-    def __init__(self):
-        BaseEntity.__init__(self)
+    # def __init__(self):
+    #     BaseEntity.__init__(self)
